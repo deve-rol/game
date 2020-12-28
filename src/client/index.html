@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Socket io</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            font-family: sans-serif;
+            outline: none;
+        }
+        body {
+            overflow: hidden;
+            height: 100vh;
+            min-height: 600px;
+        }
+        .first-page {
+            height: 100vh;
+            background-image: url('https://img5.goodfon.ru/wallpaper/nbig/f/b6/gradient-abstraktsiia-sinii-linii-background.jpg');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .first-page .form {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            grid-gap: 10px;
+        }
+        .first-page .form input {
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 18px;
+            background-color: #fff;
+            border: none;
+            grid-column: 1 / 3;
+        }
+        .first-page .form button {
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 18px;
+            background-color: #7a7eff;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            transition: .2s all;
+        }
+        .first-page .form button:hover {
+            background-color: #4d4d99;
+        }
+
+        .game {
+            display: none;
+        }
+
+        canvas {
+            /*width: 100vw;*/
+            /*height: 100vh;*/
+        }
+    </style>
+</head>
+<body>
+    <div class="first-page">
+        <div class="form">
+            <input type="text" id="player-name" placeholder="Name">
+            <button class="play-btn" onclick="play()">PLAY</button>
+            <button class="play-friends-btn">PLAY WITH FRIENDS</button>
+        </div>
+    </div>
+
+    <div class="game">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io.connect();
+
+        const body      = document.querySelector('body');
+        const firstPage = document.querySelector('.first-page');
+        const game      = document.querySelector('.game');
+
+        const canvas = document.getElementById('canvas');
+        const ctx    = canvas.getContext('2d');
+
+        let gameStatus = false;
+
+        let players = [];
+        let playerId;
+
+        const play = () => {
+            const playerName = document.getElementById('player-name');
+            socket.emit('play', playerName.value);
+            playerName.value = "";
+
+            playerId = socket.id;
+
+            firstPage.style.display = 'none';
+            game.style.display = 'block';
+
+
+            canvas.width  = 2500;
+            canvas.height = canvas.width / (body.offsetWidth / body.offsetHeight);
+
+            window.addEventListener('keydown', keyDown);
+        };
+
+        socket.on('players_update', data => {
+            players = data;
+
+            if (!gameStatus) {
+                draw()
+            }
+            gameStatus = true;
+        });
+
+        const draw = () => {
+            ctx.fillStyle = "#9cdfff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            players.forEach(player => {
+                drawPlayer(player)
+            });
+
+            socket.emit('draw_end');
+            requestAnimationFrame(draw)
+        };
+        const drawPlayer = (player) => {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            // const text = player.name + " " + Math.round(player.speed);
+            const text = player.name;
+            const textX = (player.x + player.w / 2) - (ctx.measureText(text).width / 2);
+            ctx.font = '600 16px Arial';
+            ctx.fillText(text, textX, player.y - 14);
+        };
+
+        const keyDown = (e) => {
+            if (e.keyCode === 39) {
+                socket.emit('player_move', 'right')
+            }
+            if (e.keyCode === 37) {
+                socket.emit('player_move', 'left')
+            }
+            if (e.keyCode === 32) {
+                socket.emit('player_move', 'jump')
+            }
+        };
+    </script>
+</body>
+</html>
